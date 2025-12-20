@@ -29,7 +29,7 @@ class RetinaMultiLabelDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        row = self.data.ilod[idx]
+        row = self.data.iloc[idx]
         img_name = row.iloc[0]
         img_path = os.path.join(self.image_dir, img_name)
 
