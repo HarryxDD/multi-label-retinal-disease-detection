@@ -167,9 +167,20 @@ def run_single_model(config):
     # Evaluation on off-site test set
     print("\n EVALUATION ON OFFSITE TEST SET")
 
-    y_true, y_pred, y_probs, img_names = evaluate_model(
-        model, offsite_test_loader, device, threshold=0.5
-    )
+    use_tta = getattr(config, 'USE_TTA', False)
+    
+    if use_tta and not config.TRAIN:
+        print("Using Test-Time Augmentation...")
+        y_true, y_pred, y_probs, img_names = evaluate_with_tta(
+            model, offsite_test_dataset, device, 
+            batch_size=config.BATCH_SIZE,
+            threshold=0.5,
+            num_workers=config.NUM_WORKERS
+        )
+    else:
+        y_true, y_pred, y_probs, img_names = evaluate_model(
+            model, offsite_test_loader, device, threshold=0.5
+        )
     
     # Compute metrics
     metrics = compute_metrics(y_true, y_pred, config.DISEASE_NAMES)
@@ -199,10 +210,19 @@ def run_single_model(config):
         shuffle=False, num_workers=config.NUM_WORKERS
     )
     
-    # Predict (use optimal thresholds)
-    _, _, y_probs_onsite, img_names_onsite = evaluate_model(
-        model, onsite_test_loader, device, threshold=0.5
-    )
+    # Predict
+    if use_tta and not config.TRAIN:
+        print("Using TTA for onsite predictions...")
+        _, _, y_probs_onsite, img_names_onsite = evaluate_with_tta(
+            model, onsite_test_dataset, device,
+            batch_size=config.BATCH_SIZE,
+            threshold=0.5,
+            num_workers=config.NUM_WORKERS
+        )
+    else:
+        _, _, y_probs_onsite, img_names_onsite = evaluate_model(
+            model, onsite_test_loader, device, threshold=0.5
+        )
     
     # Apply optimal thresholds
     y_pred_onsite = np.zeros_like(y_probs_onsite)
