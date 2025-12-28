@@ -60,7 +60,7 @@ class Task1_2_Config(BaseConfig):
     LOAD_PRETRAINED = True
     
     NUM_EPOCHS = 50
-    LEARNING_RATE = 1e-3  # Higher LR for classifier only
+    LEARNING_RATE = 3e-3  # Higher LR for classifier only
     WEIGHT_DECAY = 1e-4
     OPTIMIZER = 'adamw'
     SCHEDULER = 'plateau'
@@ -81,13 +81,13 @@ class Task1_3_Config(BaseConfig):
     NUM_EPOCHS = 50
     
     # Differential learning rates
-    BACKBONE_LR = 1e-5  # Smaller for pretrained backbone
-    CLASSIFIER_LR = 1e-3  # Larger for classifier
+    BACKBONE_LR = 5e-4  # Smaller for pretrained backbone
+    CLASSIFIER_LR = 5e-4  # Larger for classifier
     
     WEIGHT_DECAY = 1e-4
     OPTIMIZER = 'adamw'
-    SCHEDULER = 'plateau'
-    PATIENCE = 7
+    SCHEDULER = 'cosine'
+    PATIENCE = 10
 
 
 class Task2_1_Config(BaseConfig):
