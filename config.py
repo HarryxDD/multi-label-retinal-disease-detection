@@ -94,7 +94,7 @@ class Task2_1_Config(BaseConfig):
     """Task 2.1: Focal Loss"""
     TASK_NAME = 'task2-1'
     # Start from best Task 1.3 ResNet18 checkpoint by default
-    BACKBONE = 'resnet18'
+    BACKBONE = 'efficientnet'
 
     # For Task 2.x we reuse Task 1.3 checkpoints instead of ImageNet.
     # This mapping allows switching between resnet18 / efficientnet
@@ -127,7 +127,7 @@ class Task2_2_Config(BaseConfig):
     """Task 2.2: Class-Balanced Loss"""
     TASK_NAME = 'task2-2'
     # Start from best Task 1.3 ResNet18 checkpoint by default
-    BACKBONE = 'resnet18'
+    BACKBONE = 'efficientnet'
 
     PRETRAINED_BACKBONES = {
         'resnet18': './checkpoints/task1-3_resnet18.pt',
@@ -157,7 +157,7 @@ class Task3_1_Config(BaseConfig):
     """Task 3.1: Squeeze-and-Excitation Attention"""
     TASK_NAME = 'task3-1'
     # Start from best Task 1.3 ResNet18 checkpoint by default
-    BACKBONE = 'resnet18'
+    BACKBONE = 'efficientnet'
 
     PRETRAINED_BACKBONES = {
         'resnet18': './checkpoints/task1-3_resnet18.pt',
@@ -189,7 +189,7 @@ class Task3_2_Config(BaseConfig):
     """Task 3.2: Multi-Head Attention"""
     TASK_NAME = 'task3-2'
     # Start from best Task 1.3 ResNet18 checkpoint by default
-    BACKBONE = 'resnet18'
+    BACKBONE = 'efficientnet'
 
     PRETRAINED_BACKBONES = {
         'resnet18': './checkpoints/task1-3_resnet18.pt',
@@ -226,19 +226,19 @@ class Task4_Ensemble_Config(BaseConfig):
     # All of these start from the same full fine-tuning model of Task 1-3 ResNet18,
     # which makes them well-suited for a weighted-average ensemble.
     MODEL_PATHS = [
-        './checkpoints/task2-1_resnet18.pt',  # Focal loss (Task 2.1)
-        './checkpoints/task2-2_resnet18.pt',  # Class-balanced loss (Task 2.2)
-        './checkpoints/task3-1_resnet18.pt',  # SE attention (Task 3.1)
-        './checkpoints/task3-2_resnet18.pt',  # MHA attention (Task 3.2)
+        './checkpoints/task2-1_efficientnet.pt',  # Focal loss (Task 2.1)
+        './checkpoints/task2-2_efficientnet.pt',  # Class-balanced loss (Task 2.2)
+        './checkpoints/task3-1_efficientnet.pt',  # SE attention (Task 3.1)
+        './checkpoints/task3-2_efficientnet.pt',  # MHA attention (Task 3.2)
     ]
     
     MODEL_CONFIGS = [
         # Task 2.x models: plain ResNet18 backbone
-        {'backbone': 'resnet18', 'attention': 'none'},
-        {'backbone': 'resnet18', 'attention': 'none'},
+        {'backbone': 'efficientnet', 'attention': 'none'},
+        {'backbone': 'efficientnet', 'attention': 'none'},
         # Task 3.x models: ResNet18 with different attention mechanisms
-        {'backbone': 'resnet18', 'attention': 'se'},
-        {'backbone': 'resnet18', 'attention': 'mha'},
+        {'backbone': 'efficientnet', 'attention': 'se'},
+        {'backbone': 'efficientnet', 'attention': 'mha'},
     ]
     
     # Ensemble method: weighted average over model probabilities
