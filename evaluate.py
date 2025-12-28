@@ -7,7 +7,7 @@ from sklearn.metrics import (accuracy_score, precision_score, recall_score,
 from tqdm import tqdm
 import os
 
-def evaluate_model(model, test_loader, device, threshold=0.5, tta=False, tta_transforms=None):
+def evaluate_model(model, test_loader, device, threshold=0.5):
     """
     Evaluate model on test set
     
@@ -16,8 +16,6 @@ def evaluate_model(model, test_loader, device, threshold=0.5, tta=False, tta_tra
         test_loader: Test data loader
         device: cuda or cpu
         threshold: Classification threshold (default: 0.5)
-        tta: Whether to use Test-Time Augmentation
-        tta_transforms: List of transforms for TTA
     
     Returns:
         y_true: True labels
@@ -35,22 +33,8 @@ def evaluate_model(model, test_loader, device, threshold=0.5, tta=False, tta_tra
         for imgs, labels, names in tqdm(test_loader, desc="Evaluating"):
             imgs = imgs.to(device)
             
-            if tta and tta_transforms is not None:
-                # Test-Time Augmentation
-                probs_tta = []
-                for tta_idx in range(len(tta_transforms)):
-                    # Apply TTA transform and predict
-                    # Note: This requires re-transforming from dataset
-                    outputs = model(imgs)
-                    probs = torch.sigmoid(outputs).cpu().numpy()
-                    probs_tta.append(probs)
-                
-                # Average TTA predictions
-                probs = np.mean(probs_tta, axis=0)
-            else:
-                # Standard prediction
-                outputs = model(imgs)
-                probs = torch.sigmoid(outputs).cpu().numpy()
+            outputs = model(imgs)
+            probs = torch.sigmoid(outputs).cpu().numpy()
             
             # Store results
             y_probs_list.append(probs)

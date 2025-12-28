@@ -15,7 +15,7 @@ from train import (set_parameter_requires_grad, train_model,
 from evaluate import (evaluate_model, compute_metrics, 
                      find_optimal_threshold, save_predictions_for_kaggle,
                      evaluate_with_tta)
-from ensemble import ensemble_predict, find_optimal_weights, EnsembleModel
+from ensemble import find_optimal_weights, EnsembleModel
 
 
 def set_seed(seed=42):
@@ -101,7 +101,7 @@ def run_single_model(config):
     # Define save path
     save_path = os.path.join(
         config.SAVE_DIR, 
-        f"{config.TASK_NAME}_{config.BACKBONE}.pt"
+        f"vua_{config.TASK_NAME}_{config.BACKBONE}.pt"
     )
 
     # Training or Evaluation only
@@ -295,7 +295,11 @@ def run_ensemble(config):
     weights = None
     if config.USE_OPTIMAL_WEIGHTS and config.ENSEMBLE_METHOD == 'weighted':
         weights = find_optimal_weights(models, val_loader, device, metric='f1')
-    
+
+    ensemble = EnsembleModel(models, method=config.ENSEMBLE_METHOD, weights=weights)
+    ensemble.to(device)
+    ensemble.eval()
+
     # Evaluate on offsite test
     print("ENSEMBLE EVALUATION ON OFFSITE TEST SET")
     
@@ -305,10 +309,8 @@ def run_ensemble(config):
         # For simplicity, we'll average TTA results for each model first
         # Then ensemble the models
         
-    y_pred, y_probs, img_names = ensemble_predict(
-        models, offsite_test_loader, device,
-        method=config.ENSEMBLE_METHOD,
-        weights=weights,
+    y_pred, y_probs, img_names = ensemble.predict(
+        offsite_test_loader, device,
         threshold=0.5
     )
     
@@ -344,10 +346,8 @@ def run_ensemble(config):
         shuffle=False, num_workers=config.NUM_WORKERS
     )
     
-    y_pred_onsite, y_probs_onsite, img_names_onsite = ensemble_predict(
-        models, onsite_test_loader, device,
-        method=config.ENSEMBLE_METHOD,
-        weights=weights,
+    y_pred_onsite, y_probs_onsite, img_names_onsite = ensemble.predict(
+        onsite_test_loader, device,
         threshold=0.5
     )
     

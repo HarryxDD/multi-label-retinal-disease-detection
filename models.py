@@ -7,17 +7,11 @@ import math
 
 def init_classifier_bias(module: nn.Linear, pi: float = 0.01) -> None:
     """Initialize classifier bias using a prior probability.
-
-    This sets the bias such that the initial output probability for the
+    Set the bias such that the initial output probability for the
     positive class is approximately ``pi`` when logits are passed through
     a sigmoid:
 
         b = -log((1 - pi) / pi)
-
-    This matches the recommendation used in RetinaNet-style focal loss
-    setups to avoid an overwhelming loss from negatives at the very start
-    of training.
-
     Args:
         module: Linear classification layer whose bias will be initialized.
         pi: Prior probability for the positive class (default: 0.01).
@@ -32,8 +26,6 @@ def init_classifier_bias(module: nn.Linear, pi: float = 0.01) -> None:
 class SEBlock(nn.Module):
     """
     Squeeze and Excitation Block
-
-    Reference: Hu et al., "Squeeze-and-Excitation Networks", CVPR 2018
     """
     def __init__(self, channels, reduction=16):
         """
@@ -63,8 +55,6 @@ class SEBlock(nn.Module):
 class MultiHeadSelfAttention(nn.Module):
     """
     Multi-Head Self-Attention for spatial features
-
-    Reference: Vaswani et al., "Attention is All You Need", NeurIPS 2017
     """
     def __init__(self, dim, num_heads=8, qkv_bias=False, attn_drop=0., proj_drop=0.):
         """
@@ -121,51 +111,6 @@ class MultiHeadSelfAttention(nn.Module):
         x = x.transpose(1, 2).reshape(B, C, H, W)
 
         return x
-
-
-class AttentionPool2d(nn.Module):
-    """
-    Attention-based pooling for global features
-    Better than simple average pooling
-    """
-    def __init__(self, spatial_dim, embed_dim, num_heads=8):
-        super(AttentionPool2d, self).__init__()
-        self.positional_embedding = nn.Parameter(
-            torch.randn(spatial_dim ** 2 + 1, embed_dim) / embed_dim ** 0.5
-        )
-        self.k_proj = nn.Linear(embed_dim, embed_dim)
-        self.q_proj = nn.Linear(embed_dim, embed_dim)
-        self.v_proj = nn.Linear(embed_dim, embed_dim)
-        self.c_proj = nn.Linear(embed_dim, embed_dim)
-        self.num_heads = num_heads
-
-    def forward(self, x):
-        B, C, H, W = x.shape
-        x = x.reshape(B, C, H * W).permute(2, 0, 1)  # (H*W, B, C)
-        x = torch.cat([x.mean(dim=0, keepdim=True), x], dim=0)  # (H*W+1, B, C)
-        x = x + self.positional_embedding[:, None, :].to(x.dtype)
-
-        x, _ = F.multi_head_attention_forward(
-            query=x, key=x, value=x,
-            embed_dim_to_check=x.shape[-1],
-            num_heads=self.num_heads,
-            q_proj_weight=self.q_proj.weight,
-            k_proj_weight=self.k_proj.weight,
-            v_proj_weight=self.v_proj.weight,
-            in_proj_weight=None,
-            in_proj_bias=torch.cat([self.q_proj.bias, self.k_proj.bias, self.v_proj.bias]),
-            bias_k=None,
-            bias_v=None,
-            add_zero_attn=False,
-            dropout_p=0,
-            out_proj_weight=self.c_proj.weight,
-            out_proj_bias=self.c_proj.bias,
-            use_separate_proj_weight=True,
-            training=self.training,
-            need_weights=False
-        )
-
-        return x[0]  # Return only the pooled feature
 
 
 class ResNet18WithSE(nn.Module):
@@ -380,37 +325,17 @@ def build_model(backbone='resnet18', num_classes=3, pretrained=True, attention='
 
 def load_pretrained_backbone(model, pretrained_path, backbone_key=None):
     """Load pretrained weights for a given backbone.
-
-    This function assumes that ``pretrained_path`` has already been
-    resolved from the config's ``PRETRAINED_BACKBONES`` mapping, e.g.::
-
-        pretrained_path = config.PRETRAINED_BACKBONES[config.BACKBONE]
-
-    It is designed to:
-
-    * Load plain ResNet/EfficientNet checkpoints into plain models.
-    * Also load those same checkpoints into wrapper architectures such
-      as ``ResNet18WithSE`` / ``ResNet18WithMHA`` /
-      ``EfficientNetWithSE`` / ``EfficientNetWithMHA`` by automatically
-      remapping keys with a ``"backbone."`` prefix when needed.
-
     Args:
         model: PyTorch model whose weights will be updated.
         pretrained_path: Filesystem path to the ``.pt`` checkpoint.
         backbone_key: Optional name/key of the backbone used in
             ``PRETRAINED_BACKBONES`` (e.g. ``"resnet18"``,
-            ``"efficientnet"``). Used for logging only. When called
-            positionally from ``main.py`` this will typically be
-            ``config.BACKBONE``.
+            ``"efficientnet"``). Used for logging only.
     """
-
+    
+    msg = f"Loading pretrained weights from: {pretrained_path}"
     if backbone_key is not None:
-        print(
-            f"Loading pretrained weights for backbone '{backbone_key}' "
-            f"from: {pretrained_path}"
-        )
-    else:
-        print(f"Loading pretrained weights from: {pretrained_path}")
+        msg = f"Loading pretrained weights for backbone '{backbone_key}' from: {pretrained_path}"
 
     checkpoint_state = torch.load(pretrained_path, map_location="cpu")
 
@@ -424,7 +349,7 @@ def load_pretrained_backbone(model, pretrained_path, backbone_key=None):
     adapted_state = {}
 
     for k, v in state_dict.items():
-        # 1) Direct match (plain backbones: resnet18 / efficientnet)
+        # plain backbones: resnet18 / efficientnet
         if k in model_state and model_state[k].shape == v.shape:
             adapted_state[k] = v
             continue
@@ -435,8 +360,6 @@ def load_pretrained_backbone(model, pretrained_path, backbone_key=None):
             adapted_state[prefixed] = v
             continue
 
-    # Load only the keys that matched; keep strict=False to tolerate
-    # classifier / attention layer mismatches.
     missing, unexpected = model.load_state_dict(adapted_state, strict=False)
 
     print(f"Loaded {len(adapted_state)} parameters from checkpoint.")

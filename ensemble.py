@@ -127,13 +127,12 @@ def find_optimal_weights(models, val_loader, device, metric='f1'):
             
             y_true_list.append(labels.numpy())
     
-    # Concatenate
+
     all_probs = [np.vstack(probs) for probs in all_probs]
     y_true = np.vstack(y_true_list)
     
     # Objective function to minimize (negative metric)
     def objective(weights):
-        # Ensure weights sum to 1
         weights = weights / weights.sum()
         
         # Weighted ensemble
@@ -180,67 +179,9 @@ def find_optimal_weights(models, val_loader, device, metric='f1'):
     
     return optimal_weights
 
-
-def create_stacked_ensemble(base_models, meta_model, train_loader, device):
-    """
-    Create a stacked ensemble (meta-learning)
-    
-    Args:
-        base_models: List of base models
-        meta_model: Meta-learner model
-        train_loader: Training data loader
-        device: cuda or cpu
-    
-    Returns:
-        Trained meta_model
-    """
-    print("\nCreating stacked ensemble...")
-    
-    # Set base models to eval mode
-    for model in base_models:
-        model.eval()
-    
-    # Collect predictions from base models
-    base_preds = [[] for _ in range(len(base_models))]
-    y_true_list = []
-    
-    with torch.no_grad():
-        for imgs, labels, _ in tqdm(train_loader, desc="Base predictions"):
-            imgs = imgs.to(device)
-            
-            for i, model in enumerate(base_models):
-                outputs = model(imgs)
-                probs = torch.sigmoid(outputs).cpu().numpy()
-                base_preds[i].append(probs)
-            
-            y_true_list.append(labels.numpy())
-    
-    # Concatenate
-    base_preds = [np.vstack(preds) for preds in base_preds]
-    y_true = np.vstack(y_true_list)
-    
-    # Stack predictions as features
-    X_meta = np.hstack(base_preds)  # Shape: (N, num_models * 3)
-    
-    # Train meta-model (simple approach using sklearn)
-    from sklearn.linear_model import LogisticRegression
-    from sklearn.multioutput import MultiOutputClassifier
-    
-    print("  Training meta-learner...")
-    meta_classifier = MultiOutputClassifier(
-        LogisticRegression(max_iter=1000, random_state=42)
-    )
-    meta_classifier.fit(X_meta, y_true)
-    
-    print("Stacked ensemble created!")
-    
-    return meta_classifier
-
-
 class EnsembleModel:
     """
     Wrapper class for ensemble of models
-    Makes it easy to use like a single model
     """
     def __init__(self, models, method='average', weights=None):
         """
@@ -254,18 +195,13 @@ class EnsembleModel:
         self.weights = weights
         
     def predict(self, test_loader, device, threshold=0.5):
-        """
-        Predict using ensemble
-        """
         return ensemble_predict(self.models, test_loader, device, 
                                self.method, self.weights, threshold)
     
     def eval(self):
-        """Set all models to eval mode"""
         for model in self.models:
             model.eval()
     
     def to(self, device):
-        """Move all models to device"""
         self.models = [model.to(device) for model in self.models]
         return self
