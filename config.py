@@ -222,24 +222,29 @@ class Task4_Ensemble_Config(BaseConfig):
     TASK_NAME = 'task4-ensemble'
     
     # Models to ensemble
+    # NOTE: We only use ResNet18-based models from tasks 2-1, 2-2, 3-1 and 3-2.
+    # All of these start from the same full fine-tuning model of Task 1-3 ResNet18,
+    # which makes them well-suited for a weighted-average ensemble.
     MODEL_PATHS = [
-        './checkpoints/task1-3_efficientnet.pt',  # Full fine-tuning
-        './checkpoints/task2-1_efficientnet.pt',  # Focal loss
-        './checkpoints/task2-2_efficientnet.pt',  # Class-balanced
-        './checkpoints/task3-1_efficientnet.pt',  # SE attention
-        './checkpoints/task3-2_efficientnet.pt',  # MHA attention
+        './checkpoints/task2-1_resnet18.pt',  # Focal loss (Task 2.1)
+        './checkpoints/task2-2_resnet18.pt',  # Class-balanced loss (Task 2.2)
+        './checkpoints/task3-1_resnet18.pt',  # SE attention (Task 3.1)
+        './checkpoints/task3-2_resnet18.pt',  # MHA attention (Task 3.2)
     ]
     
     MODEL_CONFIGS = [
-        {'backbone': 'efficientnet', 'attention': 'none'},
-        {'backbone': 'efficientnet', 'attention': 'none'},
-        {'backbone': 'efficientnet', 'attention': 'none'},
-        {'backbone': 'efficientnet', 'attention': 'se'},
-        {'backbone': 'efficientnet', 'attention': 'mha'},
+        # Task 2.x models: plain ResNet18 backbone
+        {'backbone': 'resnet18', 'attention': 'none'},
+        {'backbone': 'resnet18', 'attention': 'none'},
+        # Task 3.x models: ResNet18 with different attention mechanisms
+        {'backbone': 'resnet18', 'attention': 'se'},
+        {'backbone': 'resnet18', 'attention': 'mha'},
     ]
     
-    # Ensemble method
+    # Ensemble method: weighted average over model probabilities
     ENSEMBLE_METHOD = 'weighted'  # 'average', 'weighted', 'voting'
+
+    # Learn ensemble weights on the validation set to maximize F1
     USE_OPTIMAL_WEIGHTS = True  # Find optimal weights on validation set
     
     # Test-Time Augmentation

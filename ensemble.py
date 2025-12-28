@@ -41,9 +41,8 @@ def ensemble_predict(models, test_loader, device, method='average',
                 probs = torch.sigmoid(outputs).cpu().numpy()
                 all_probs[i].append(probs)
             
-            # Store image names (only once)
-            if not img_names_list:
-                img_names_list.extend(names)
+            # Store image names for every batch so lengths match predictions
+            img_names_list.extend(names)
     
     # Concatenate all batches for each model
     all_probs = [np.vstack(probs) for probs in all_probs]
