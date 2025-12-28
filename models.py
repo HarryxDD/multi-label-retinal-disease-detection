@@ -4,6 +4,31 @@ import torch.nn.functional as F
 from torchvision import models
 import math
 
+
+def init_classifier_bias(module: nn.Linear, pi: float = 0.01) -> None:
+    """Initialize classifier bias using a prior probability.
+
+    This sets the bias such that the initial output probability for the
+    positive class is approximately ``pi`` when logits are passed through
+    a sigmoid:
+
+        b = -log((1 - pi) / pi)
+
+    This matches the recommendation used in RetinaNet-style focal loss
+    setups to avoid an overwhelming loss from negatives at the very start
+    of training.
+
+    Args:
+        module: Linear classification layer whose bias will be initialized.
+        pi: Prior probability for the positive class (default: 0.01).
+    """
+    if module is None or module.bias is None:
+        return
+
+    with torch.no_grad():
+        bias_value = -math.log((1.0 - pi) / pi)
+        module.bias.data.fill_(bias_value)
+
 class SEBlock(nn.Module):
     """
     Squeeze and Excitation Block
@@ -161,6 +186,8 @@ class ResNet18WithSE(nn.Module):
 
         # Replace classifier
         self.backbone.fc = nn.Linear(512, num_classes)
+        # Initialize classifier bias using prior pi
+        init_classifier_bias(self.backbone.fc, pi=0.01)
 
         # Store layer references for SE insertion
         self.layer1 = self.backbone.layer1
@@ -214,6 +241,8 @@ class ResNet18WithMHA(nn.Module):
 
         # Replace classifier
         self.backbone.fc = nn.Linear(512, num_classes)
+        # Initialize classifier bias using prior pi
+        init_classifier_bias(self.backbone.fc, pi=0.01)
 
     def forward(self, x):
         # Backbone forward pass up to layer4
@@ -253,6 +282,8 @@ class EfficientNetWithSE(nn.Module):
 
         # Replace classifier
         self.backbone.classifier[1] = nn.Linear(1280, num_classes)
+        # Initialize classifier bias using prior pi
+        init_classifier_bias(self.backbone.classifier[1], pi=0.01)
 
     def forward(self, x):
         # Extract features
@@ -284,6 +315,8 @@ class EfficientNetWithMHA(nn.Module):
 
         # Replace classifier
         self.backbone.classifier[1] = nn.Linear(1280, num_classes)
+        # Initialize classifier bias using prior pi
+        init_classifier_bias(self.backbone.classifier[1], pi=0.01)
 
     def forward(self, x):
         # Extract features
@@ -324,6 +357,8 @@ def build_model(backbone='resnet18', num_classes=3, pretrained=True, attention='
         else:
             model = models.resnet18(pretrained=pretrained)
             model.fc = nn.Linear(model.fc.in_features, num_classes)
+            # Initialize classifier bias using prior pi
+            init_classifier_bias(model.fc, pi=0.01)
             
     elif backbone == 'efficientnet':
         if attention == 'se':
@@ -335,26 +370,81 @@ def build_model(backbone='resnet18', num_classes=3, pretrained=True, attention='
         else:
             model = models.efficientnet_b0(pretrained=pretrained)
             model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
+            # Initialize classifier bias using prior pi
+            init_classifier_bias(model.classifier[1], pi=0.01)
     else:
         raise ValueError(f"Unknown backbone: {backbone}")
     
     return model 
 
 
-def load_pretrained_backbone(model, pretrained_path, backbone_type='resnet18'):
-    """
-    Load pretrained weights from ADAM/REFUGE2/APTOS training
+def load_pretrained_backbone(model, pretrained_path, backbone_key=None):
+    """Load pretrained weights for a given backbone.
+
+    This function assumes that ``pretrained_path`` has already been
+    resolved from the config's ``PRETRAINED_BACKBONES`` mapping, e.g.::
+
+        pretrained_path = config.PRETRAINED_BACKBONES[config.BACKBONE]
+
+    It is designed to:
+
+    * Load plain ResNet/EfficientNet checkpoints into plain models.
+    * Also load those same checkpoints into wrapper architectures such
+      as ``ResNet18WithSE`` / ``ResNet18WithMHA`` /
+      ``EfficientNetWithSE`` / ``EfficientNetWithMHA`` by automatically
+      remapping keys with a ``"backbone."`` prefix when needed.
 
     Args:
-        model: PyTorch model
-        pretrained_path: Path to .pt file
-        backbone_type: 'resnet18' | 'efficientnet'
+        model: PyTorch model whose weights will be updated.
+        pretrained_path: Filesystem path to the ``.pt`` checkpoint.
+        backbone_key: Optional name/key of the backbone used in
+            ``PRETRAINED_BACKBONES`` (e.g. ``"resnet18"``,
+            ``"efficientnet"``). Used for logging only. When called
+            positionally from ``main.py`` this will typically be
+            ``config.BACKBONE``.
     """
-    print(f"Loading pretrained weights from: {pretrained_path}")
-    state_dict = torch.load(pretrained_path, map_location='cpu')
 
-    # Load with strict=False to handle missing classifier weights
-    model.load_state_dict(state_dict, strict=False)
-    print("Pretrained weights loaded successfully.")
+    if backbone_key is not None:
+        print(
+            f"Loading pretrained weights for backbone '{backbone_key}' "
+            f"from: {pretrained_path}"
+        )
+    else:
+        print(f"Loading pretrained weights from: {pretrained_path}")
+
+    checkpoint_state = torch.load(pretrained_path, map_location="cpu")
+
+    # Some checkpoints may be stored under a top-level 'state_dict' key.
+    if isinstance(checkpoint_state, dict) and "state_dict" in checkpoint_state:
+        state_dict = checkpoint_state["state_dict"]
+    else:
+        state_dict = checkpoint_state
+
+    model_state = model.state_dict()
+    adapted_state = {}
+
+    for k, v in state_dict.items():
+        # 1) Direct match (plain backbones: resnet18 / efficientnet)
+        if k in model_state and model_state[k].shape == v.shape:
+            adapted_state[k] = v
+            continue
+
+        # 2) Match with 'backbone.' prefix for wrapper models
+        prefixed = f"backbone.{k}"
+        if prefixed in model_state and model_state[prefixed].shape == v.shape:
+            adapted_state[prefixed] = v
+            continue
+
+    # Load only the keys that matched; keep strict=False to tolerate
+    # classifier / attention layer mismatches.
+    missing, unexpected = model.load_state_dict(adapted_state, strict=False)
+
+    print(f"Loaded {len(adapted_state)} parameters from checkpoint.")
+    if missing:
+        print(f"Missing keys (not loaded) count: {len(missing)}")
+    if unexpected:
+        print(f"Unexpected keys in checkpoint count: {len(unexpected)}")
+
+    print("Pretrained backbone weights loaded successfully.")
 
     return model

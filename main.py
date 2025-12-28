@@ -89,8 +89,11 @@ def run_single_model(config):
     
     # Load pretrained weights
     if config.LOAD_PRETRAINED:
-        pretrained_path = (config.PRETRAINED_EFFICIENTNET if config.BACKBONE == 'efficientnet'
-                          else config.PRETRAINED_RESNET18)
+        backbone_key = config.BACKBONE
+        pretrained_map = getattr(config, 'PRETRAINED_BACKBONES', {})
+        if backbone_key not in pretrained_map:
+             raise ValueError(f"No pretrained path configured for backbone: {backbone_key}")
+        pretrained_path = pretrained_map[backbone_key]
         model = load_pretrained_backbone(model, pretrained_path, config.BACKBONE)
     
     model = model.to(device)

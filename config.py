@@ -16,9 +16,12 @@ class BaseConfig:
     OFFSITE_TEST_DIR = './images/offsite_test'
     ONSITE_TEST_DIR = './images/onsite_test'
     
-    PRETRAINED_RESNET18 = './pretrained_backbone/ckpt_resnet18_ep50.pt'
-    PRETRAINED_EFFICIENTNET = './pretrained_backbone/ckpt_efficientnet_ep50.pt'
-    
+    # PRETRAINED_RESNET18 = './pretrained_backbone/ckpt_resnet18_ep50.pt'
+    # PRETRAINED_EFFICIENTNET = './pretrained_backbone/ckpt_efficientnet_ep50.pt'
+    PRETRAINED_BACKBONES = {
+        'resnet18': './pretrained_backbone/ckpt_resnet18_ep50.pt',
+        'efficientnet': './pretrained_backbone/ckpt_efficientnet_ep50.pt',
+    }
     SAVE_DIR = './checkpoints'
     
     # Dataset
@@ -56,7 +59,7 @@ class Task1_2_Config(BaseConfig):
     FREEZE_BACKBONE = True
     LOAD_PRETRAINED = True
     
-    NUM_EPOCHS = 30
+    NUM_EPOCHS = 50
     LEARNING_RATE = 1e-3  # Higher LR for classifier only
     WEIGHT_DECAY = 1e-4
     OPTIMIZER = 'adamw'
@@ -90,7 +93,16 @@ class Task1_3_Config(BaseConfig):
 class Task2_1_Config(BaseConfig):
     """Task 2.1: Focal Loss"""
     TASK_NAME = 'task2-1'
-    BACKBONE = 'efficientnet'  # Use better performing backbone
+    # Start from best Task 1.3 ResNet18 checkpoint by default
+    BACKBONE = 'resnet18'
+
+    # For Task 2.x we reuse Task 1.3 checkpoints instead of ImageNet.
+    # This mapping allows switching between resnet18 / efficientnet
+    # simply by changing BACKBONE.
+    PRETRAINED_BACKBONES = {
+        'resnet18': './checkpoints/task1-3_resnet18.pt',
+        'efficientnet': './checkpoints/task1-3_efficientnet.pt',
+    }
     
     # Training
     TRAIN = True
@@ -114,7 +126,13 @@ class Task2_1_Config(BaseConfig):
 class Task2_2_Config(BaseConfig):
     """Task 2.2: Class-Balanced Loss"""
     TASK_NAME = 'task2-2'
-    BACKBONE = 'efficientnet'
+    # Start from best Task 1.3 ResNet18 checkpoint by default
+    BACKBONE = 'resnet18'
+
+    PRETRAINED_BACKBONES = {
+        'resnet18': './checkpoints/task1-3_resnet18.pt',
+        'efficientnet': './checkpoints/task1-3_efficientnet.pt',
+    }
     
     # Training
     TRAIN = True
@@ -138,7 +156,13 @@ class Task2_2_Config(BaseConfig):
 class Task3_1_Config(BaseConfig):
     """Task 3.1: Squeeze-and-Excitation Attention"""
     TASK_NAME = 'task3-1'
-    BACKBONE = 'efficientnet'
+    # Start from best Task 1.3 ResNet18 checkpoint by default
+    BACKBONE = 'resnet18'
+
+    PRETRAINED_BACKBONES = {
+        'resnet18': './checkpoints/task1-3_resnet18.pt',
+        'efficientnet': './checkpoints/task1-3_efficientnet.pt',
+    }
     
     # Training
     TRAIN = True
@@ -164,7 +188,13 @@ class Task3_1_Config(BaseConfig):
 class Task3_2_Config(BaseConfig):
     """Task 3.2: Multi-Head Attention"""
     TASK_NAME = 'task3-2'
-    BACKBONE = 'efficientnet'
+    # Start from best Task 1.3 ResNet18 checkpoint by default
+    BACKBONE = 'resnet18'
+
+    PRETRAINED_BACKBONES = {
+        'resnet18': './checkpoints/task1-3_resnet18.pt',
+        'efficientnet': './checkpoints/task1-3_efficientnet.pt',
+    }
     
     # Training
     TRAIN = True
@@ -194,10 +224,10 @@ class Task4_Ensemble_Config(BaseConfig):
     # Models to ensemble
     MODEL_PATHS = [
         './checkpoints/task1-3_efficientnet.pt',  # Full fine-tuning
-        './checkpoints/task2-1_efficientnet_focal.pt',  # Focal loss
-        './checkpoints/task2-2_efficientnet_cb.pt',  # Class-balanced
-        './checkpoints/task3-1_efficientnet_se.pt',  # SE attention
-        './checkpoints/task3-2_efficientnet_mha.pt',  # MHA attention
+        './checkpoints/task2-1_efficientnet.pt',  # Focal loss
+        './checkpoints/task2-2_efficientnet.pt',  # Class-balanced
+        './checkpoints/task3-1_efficientnet.pt',  # SE attention
+        './checkpoints/task3-2_efficientnet.pt',  # MHA attention
     ]
     
     MODEL_CONFIGS = [

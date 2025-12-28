@@ -225,7 +225,7 @@ def get_optimizer_and_scheduler(model, optimizer_name='adam', lr=1e-4, weight_de
             mode='min',
             patience=patience,
             factor=factor,
-            verbose=True
+            # verbose=True
         )
     elif scheduler_name.lower() == 'cosine':
         scheduler = optim.lr_scheduler.CosineAnnealingLR(
@@ -285,7 +285,7 @@ def differentially_train(model, train_loader, val_loader, criterion, device, num
         mode='min',
         patience=3,
         factor=0.5,
-        verbose=True
+        # verbose=True
     )
 
     print(f"\n Differential Learning Rate:")
