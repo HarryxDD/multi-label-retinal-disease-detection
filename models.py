@@ -3,6 +3,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
 import math
+try:
+    import timm
+    TIMM_AVAILABLE = True
+except ImportError:
+    TIMM_AVAILABLE = False
+    print("Warning: timm not available. Install with: pip install timm")
 
 
 def init_classifier_bias(module: nn.Linear, pi: float = 0.01) -> None:
@@ -278,6 +284,33 @@ class EfficientNetWithMHA(nn.Module):
         return x
 
 
+class VisionTransformer(nn.Module):
+    """
+    Vision Transformer (ViT) for image classification using timm library
+    """
+    def __init__(self, num_classes=3, pretrained=True, model_name='vit_base_patch16_224'):
+        """
+        Args:
+            num_classes: Number of output classes
+            pretrained: Use ImageNet pretrained weights
+            model_name: ViT variant from timm (default: vit_base_patch16_224)
+        """
+        super(VisionTransformer, self).__init__()
+        
+        if not TIMM_AVAILABLE:
+            raise ImportError("timm library required for ViT. Install with: pip install timm")
+        
+        # Load pretrained ViT model from timm
+        self.model = timm.create_model(model_name, pretrained=pretrained, num_classes=num_classes)
+        
+        # Initialize classifier bias
+        if hasattr(self.model, 'head'):
+            init_classifier_bias(self.model.head, pi=0.01)
+        
+    def forward(self, x):
+        return self.model(x)
+
+
 def build_model(backbone='resnet18', num_classes=3, pretrained=True, attention='none', **kwargs):
     """
     Factory function to build models with different configurations
@@ -317,8 +350,13 @@ def build_model(backbone='resnet18', num_classes=3, pretrained=True, attention='
             model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
             # Initialize classifier bias using prior pi
             init_classifier_bias(model.classifier[1], pi=0.01)
+            
+    elif backbone == 'vit':
+        model_name = kwargs.get('model_name', 'vit_base_patch16_224')
+        model = VisionTransformer(num_classes, pretrained, model_name=model_name)
+        
     else:
-        raise ValueError(f"Unknown backbone: {backbone}")
+        raise ValueError(f"Unknown backbone: {backbone}. Supported: resnet18, efficientnet, vit")
     
     return model 
 

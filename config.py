@@ -216,9 +216,38 @@ class Task3_2_Config(BaseConfig):
     PATIENCE = 7
 
 
+class Task4_ViT_Config(BaseConfig):
+    """Task 4: Vision Transformer for enhanced ensemble"""
+    TASK_NAME = 'task4-vit'
+    
+    # Model
+    BACKBONE = 'vit'
+    MODEL_NAME = 'vit_base_patch16_224'  # ViT-Base/16 pretrained on ImageNet
+    IMG_SIZE = 224  # ViT expects 224x224 input
+    
+    # Training
+    TRAIN = True
+    FREEZE_BACKBONE = False
+    LOAD_PRETRAINED = True
+    
+    # Loss (use focal loss which works well)
+    LOSS_TYPE = 'focal'
+    
+    # Training parameters
+    NUM_EPOCHS = 15
+    LEARNING_RATE = 3e-4
+    WEIGHT_DECAY = 1e-4
+    OPTIMIZER = 'adamw'
+    SCHEDULER = 'cosine'
+    PATIENCE = 7
+
+
 class Task4_Ensemble_Config(BaseConfig):
     """Task 4: Ensemble"""
     TASK_NAME = 'task4-ensemble'
+    
+    # Image size - use 224 to match ViT requirements
+    IMG_SIZE = 224
     
     # Models to ensemble
     # We only use ResNet18-based models from tasks 2-1, 2-2, 3-1 and 3-2.
@@ -229,6 +258,7 @@ class Task4_Ensemble_Config(BaseConfig):
         './checkpoints/vua_task2-2_efficientnet.pt',  # Class-balanced loss (Task 2.2)
         './checkpoints/vua_task3-1_efficientnet.pt',  # SE attention (Task 3.1)
         './checkpoints/vua_task3-2_efficientnet.pt',  # MHA attention (Task 3.2)
+        './checkpoints/vua_task4-vit_vit.pt',              # Vision Transformer (Task 4)
     ]
     
     MODEL_CONFIGS = [
@@ -238,6 +268,8 @@ class Task4_Ensemble_Config(BaseConfig):
         # Task 3.x models: ResNet18 with different attention mechanisms
         {'backbone': 'efficientnet', 'attention': 'se'},
         {'backbone': 'efficientnet', 'attention': 'mha'},
+        # Task 4: Vision Transformer
+        {'backbone': 'vit', 'attention': 'none', 'model_name': 'vit_base_patch16_224'},
     ]
     
     # Ensemble method: weighted average over model probabilities
@@ -271,6 +303,7 @@ def get_config(task='task1-1'):
         'task2-2': Task2_2_Config,
         'task3-1': Task3_1_Config,
         'task3-2': Task3_2_Config,
+        'task4-vit': Task4_ViT_Config,
         'task4': Task4_Ensemble_Config,
     }
     

@@ -78,17 +78,20 @@ def run_single_model(config):
     
     # Build model
     attention = getattr(config, 'ATTENTION', 'none')
+    # For ViT, use pretrained=True to load ImageNet weights from timm
+    pretrained = True if config.BACKBONE == 'vit' else False
     model = build_model(
         backbone=config.BACKBONE,
         num_classes=config.NUM_CLASSES,
-        pretrained=False,  # We'll load our pretrained weights
+        pretrained=pretrained,
         attention=attention,
         se_reduction=getattr(config, 'SE_REDUCTION', 16),
-        num_heads=getattr(config, 'NUM_HEADS', 8)
+        num_heads=getattr(config, 'NUM_HEADS', 8),
+        model_name=getattr(config, 'MODEL_NAME', 'vit_base_patch16_224')
     )
     
-    # Load pretrained weights
-    if config.LOAD_PRETRAINED:
+    # Load pretrained weights (skip for ViT as it loads from timm)
+    if config.LOAD_PRETRAINED and config.BACKBONE != 'vit':
         backbone_key = config.BACKBONE
         pretrained_map = getattr(config, 'PRETRAINED_BACKBONES', {})
         if backbone_key not in pretrained_map:
