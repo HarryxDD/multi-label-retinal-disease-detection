@@ -16,11 +16,14 @@ class BaseConfig:
     OFFSITE_TEST_DIR = './images/offsite_test'
     ONSITE_TEST_DIR = './images/onsite_test'
     
+    # PRETRAINED_RESNET18 = './pretrained_backbone/ckpt_resnet18_ep50.pt'
+    # PRETRAINED_EFFICIENTNET = './pretrained_backbone/ckpt_efficientnet_ep50.pt'
     PRETRAINED_BACKBONES = {
         'resnet18': './pretrained_backbone/ckpt_resnet18_ep50.pt',
         'efficientnet': './pretrained_backbone/ckpt_efficientnet_ep50.pt',
     }
     SAVE_DIR = './checkpoints'
+    TEAM_NAME = 'vua'  # Team name for model naming convention
     
     # Dataset
     IMG_SIZE = 256
@@ -42,6 +45,7 @@ class Task1_1_Config(BaseConfig):
     TASK_NAME = 'task1-1'
     BACKBONE = 'efficientnet'  # or 'resnet18'
     
+    # No training parameters needed
     TRAIN = False
     LOAD_PRETRAINED = True
     USE_TTA = True  # Test-Time Augmentation
@@ -58,7 +62,7 @@ class Task1_2_Config(BaseConfig):
     LOAD_PRETRAINED = True
     
     NUM_EPOCHS = 50
-    LEARNING_RATE = 3e-3  
+    LEARNING_RATE = 3e-3  # Higher LR for classifier only
     WEIGHT_DECAY = 1e-4
     OPTIMIZER = 'adamw'
     SCHEDULER = 'plateau'
@@ -95,8 +99,8 @@ class Task2_1_Config(BaseConfig):
     BACKBONE = 'efficientnet'
 
     PRETRAINED_BACKBONES = {
-        'resnet18': './checkpoints/task1-3_resnet18.pt',
-        'efficientnet': './checkpoints/task1-3_efficientnet.pt',
+        'resnet18': './checkpoints/vua_task1-3_resnet18.pt',
+        'efficientnet': './checkpoints/vua_task1-3_efficientnet.pt',
     }
     
     # Training
@@ -125,8 +129,8 @@ class Task2_2_Config(BaseConfig):
     BACKBONE = 'efficientnet'
 
     PRETRAINED_BACKBONES = {
-        'resnet18': './checkpoints/task1-3_resnet18.pt',
-        'efficientnet': './checkpoints/task1-3_efficientnet.pt',
+        'resnet18': './checkpoints/vua_task1-3_resnet18.pt',
+        'efficientnet': './checkpoints/vua_task1-3_efficientnet.pt',
     }
     
     # Training
@@ -151,12 +155,12 @@ class Task2_2_Config(BaseConfig):
 class Task3_1_Config(BaseConfig):
     """Task 3.1: Squeeze-and-Excitation Attention"""
     TASK_NAME = 'task3-1'
-
+    # Start from best Task 1.3 ResNet18 checkpoint by default
     BACKBONE = 'efficientnet'
 
     PRETRAINED_BACKBONES = {
-        'resnet18': './checkpoints/task1-3_resnet18.pt',
-        'efficientnet': './checkpoints/task1-3_efficientnet.pt',
+        'resnet18': './checkpoints/vua_task1-3_resnet18.pt',
+        'efficientnet': './checkpoints/vua_task1-3_efficientnet.pt',
     }
     
     # Training
@@ -183,12 +187,12 @@ class Task3_1_Config(BaseConfig):
 class Task3_2_Config(BaseConfig):
     """Task 3.2: Multi-Head Attention"""
     TASK_NAME = 'task3-2'
-
+    # Start from best Task 1.3 ResNet18 checkpoint by default
     BACKBONE = 'efficientnet'
 
     PRETRAINED_BACKBONES = {
-        'resnet18': './checkpoints/task1-3_resnet18.pt',
-        'efficientnet': './checkpoints/task1-3_efficientnet.pt',
+        'resnet18': './checkpoints/vua_task1-3_resnet18.pt',
+        'efficientnet': './checkpoints/vua_task1-3_efficientnet.pt',
     }
     
     # Training
@@ -213,20 +217,25 @@ class Task3_2_Config(BaseConfig):
 
 
 class Task4_Ensemble_Config(BaseConfig):
-    """Task 4: Ensemble (Best approach for maximum score!)"""
+    """Task 4: Ensemble"""
     TASK_NAME = 'task4-ensemble'
     
     # Models to ensemble
+    # We only use ResNet18-based models from tasks 2-1, 2-2, 3-1 and 3-2.
+    # All of these start from the same full fine-tuning model of Task 1-3 ResNet18,
+    # which makes them well-suited for a weighted-average ensemble.
     MODEL_PATHS = [
-        './checkpoints/task2-1_efficientnet.pt',  # Focal loss (Task 2.1)
-        './checkpoints/task2-2_efficientnet.pt',  # Class-balanced loss (Task 2.2)
-        './checkpoints/task3-1_efficientnet.pt',  # SE attention (Task 3.1)
-        './checkpoints/task3-2_efficientnet.pt',  # MHA attention (Task 3.2)
+        './checkpoints/vua_task2-1_efficientnet.pt',  # Focal loss (Task 2.1)
+        './checkpoints/vua_task2-2_efficientnet.pt',  # Class-balanced loss (Task 2.2)
+        './checkpoints/vua_task3-1_efficientnet.pt',  # SE attention (Task 3.1)
+        './checkpoints/vua_task3-2_efficientnet.pt',  # MHA attention (Task 3.2)
     ]
     
     MODEL_CONFIGS = [
+        # Task 2.x models: plain ResNet18 backbone
         {'backbone': 'efficientnet', 'attention': 'none'},
         {'backbone': 'efficientnet', 'attention': 'none'},
+        # Task 3.x models: ResNet18 with different attention mechanisms
         {'backbone': 'efficientnet', 'attention': 'se'},
         {'backbone': 'efficientnet', 'attention': 'mha'},
     ]
@@ -237,8 +246,10 @@ class Task4_Ensemble_Config(BaseConfig):
     # Learn ensemble weights on the validation set to maximize F1
     USE_OPTIMAL_WEIGHTS = True  # Find optimal weights on validation set
     
+    # Test-Time Augmentation
     USE_TTA = True
-
+    
+    # Threshold optimization
     OPTIMIZE_THRESHOLD = True
 
 

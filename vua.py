@@ -106,8 +106,7 @@ def run_single_model(config):
 
     # Training or Evaluation only
     if config.TRAIN:
-        print("\n TRAINING PHASE")
-        print("==============")
+        print("\n TRAINING PHASE:")
 
         # Freeze/Unfreeze parameters
         if getattr(config, 'FREEZE_BACKBONE', False):
@@ -230,11 +229,11 @@ def run_single_model(config):
         y_pred_onsite[:, i] = (y_probs_onsite[:, i] > threshold).astype(int)
     
     # Save Kaggle submission
-    submission_path = f"./submissions/{config.TASK_NAME}_{config.BACKBONE}_submission.csv"
+    submission_path = f"./submissions/vua_{config.TASK_NAME}_{config.BACKBONE}_submission.csv"
     os.makedirs('./submissions', exist_ok=True)
     save_predictions_for_kaggle(img_names_onsite, y_pred_onsite, submission_path)
     
-    print(f"\n✅ Task {config.TASK_NAME} completed!")
+    print(f"\nTask {config.TASK_NAME} completed!")
     print(f"Model saved: {save_path}")
     print(f"Submission saved: {submission_path}")
     print(f"Offsite Test Average F1-Score: {metrics_opt['average_f1']:.4f}")
@@ -358,7 +357,7 @@ def run_ensemble(config):
             y_pred_onsite[:, i] = (y_probs_onsite[:, i] > threshold).astype(int)
     
     # Save submission
-    submission_path = f"./submissions/{config.TASK_NAME}_submission.csv"
+    submission_path = f"./submissions/vua_{config.TASK_NAME}_submission.csv"
     save_predictions_for_kaggle(img_names_onsite, y_pred_onsite, submission_path)
     
     print(f"\nEnsemble evaluation completed!")
