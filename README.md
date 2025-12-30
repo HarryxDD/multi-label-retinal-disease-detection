@@ -1,5 +1,16 @@
 # Multi Label Retinal Disease Detection
 
+## Setup Environment
+* Create python virtual environment
+```shell
+python -m venv .venv && source .venv/bin/activate
+```
+* Install required packages
+```shell
+pip install -r requirements.txt
+```
+
+
 ## Task 1: Transfer Learning
 
 ### Task 1.1: No fine-tuning
