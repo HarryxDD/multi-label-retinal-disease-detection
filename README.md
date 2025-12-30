@@ -56,6 +56,12 @@ python vua.py --task task3-2
 
 ## Task 4: Ensemble Learning
 > Only run this after completing other tasks
+* Train ensemble model
 ```shell
-python vua.py --task task4
+python vua.py --task task4 
+```
+
+* Train stacking model
+```shell
+python vua.py --task task4-stacking
 ```
