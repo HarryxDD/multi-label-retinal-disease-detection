@@ -173,7 +173,7 @@ class Task3_1_Config(BaseConfig):
     SE_REDUCTION = 16
     
     # Loss (use best from Task 2)
-    LOSS_TYPE = 'focal'  # or 'class_balanced' or 'combined'
+    LOSS_TYPE = 'class_balanced'  # or 'class_balanced' or 'combined'
     
     NUM_EPOCHS = 50
     BACKBONE_LR = 1e-5
@@ -205,7 +205,7 @@ class Task3_2_Config(BaseConfig):
     NUM_HEADS = 8
     
     # Loss (use best from Task 2)
-    LOSS_TYPE = 'focal'
+    LOSS_TYPE = 'class_balanced'
     
     NUM_EPOCHS = 50
     BACKBONE_LR = 1e-5
