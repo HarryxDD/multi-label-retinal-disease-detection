@@ -156,7 +156,7 @@ class Task3_1_Config(BaseConfig):
     """Task 3.1: Squeeze-and-Excitation Attention"""
     TASK_NAME = 'task3-1'
     # Start from best Task 1.3 ResNet18 checkpoint by default
-    BACKBONE = 'efficientnet'
+    BACKBONE = 'resnet18'
 
     PRETRAINED_BACKBONES = {
         'resnet18': './checkpoints/vua_task1-3_resnet18.pt',
@@ -188,7 +188,7 @@ class Task3_2_Config(BaseConfig):
     """Task 3.2: Multi-Head Attention"""
     TASK_NAME = 'task3-2'
     # Start from best Task 1.3 ResNet18 checkpoint by default
-    BACKBONE = 'efficientnet'
+    BACKBONE = 'resnet18'
 
     PRETRAINED_BACKBONES = {
         'resnet18': './checkpoints/vua_task1-3_resnet18.pt',
@@ -226,19 +226,26 @@ class Task4_Ensemble_Config(BaseConfig):
     # Models to ensemble
     # Focus on best performing EfficientNet models with different techniques
     MODEL_PATHS = [
-        './checkpoints/vua_task2-1_efficientnet.pt',  # Focal loss (Task 2.1)
-        './checkpoints/vua_task2-2_efficientnet.pt',  # Class-balanced loss (Task 2.2)
-        './checkpoints/vua_task3-1_efficientnet.pt',  # SE attention (Task 3.1)
-        './checkpoints/vua_task3-2_efficientnet.pt',  # MHA attention (Task 3.2)
+        './checkpoints/vua_task2-1_efficientnet.pt',
+        './checkpoints/vua_task2-2_efficientnet.pt',  
+        './checkpoints/vua_task3-1_efficientnet.pt',
+        './checkpoints/vua_task3-2_efficientnet.pt',
+        './checkpoints/vua_task2-1_resnet18.pt',  
+        './checkpoints/vua_task2-2_resnet18.pt',
+        './checkpoints/vua_task3-1_resnet18.pt', 
+        './checkpoints/vua_task3-2_resnet18.pt',  
     ]
     
     MODEL_CONFIGS = [
-        # Task 2.x models: plain EfficientNet backbone with different losses
         {'backbone': 'efficientnet', 'attention': 'none'},
         {'backbone': 'efficientnet', 'attention': 'none'},
-        # Task 3.x models: EfficientNet with different attention mechanisms
         {'backbone': 'efficientnet', 'attention': 'se'},
         {'backbone': 'efficientnet', 'attention': 'mha'},
+        
+        {'backbone': 'resnet18', 'attention': 'none'},
+        {'backbone': 'resnet18', 'attention': 'none'},
+        {'backbone': 'resnet18', 'attention': 'se'},
+        {'backbone': 'resnet18', 'attention': 'mha'},
     ]
     
     # Ensemble method: weighted average over model probabilities
@@ -263,10 +270,14 @@ class Task4_Stacking_Config(BaseConfig):
     
     # Models to stack (same as ensemble)
     MODEL_PATHS = [
-        './checkpoints/vua_task2-1_efficientnet.pt',  # Focal loss (Task 2.1)
-        './checkpoints/vua_task2-2_efficientnet.pt',  # Class-balanced loss (Task 2.2)
-        './checkpoints/vua_task3-1_efficientnet.pt',  # SE attention (Task 3.1)
-        './checkpoints/vua_task3-2_efficientnet.pt',  # MHA attention (Task 3.2)
+        './checkpoints/vua_task2-1_efficientnet.pt',
+        './checkpoints/vua_task2-2_efficientnet.pt',  
+        './checkpoints/vua_task3-1_efficientnet.pt',
+        './checkpoints/vua_task3-2_efficientnet.pt',
+        './checkpoints/vua_task2-1_resnet18.pt',  
+        './checkpoints/vua_task2-2_resnet18.pt',
+        './checkpoints/vua_task3-1_resnet18.pt', 
+        './checkpoints/vua_task3-2_resnet18.pt',  
     ]
     
     MODEL_CONFIGS = [
@@ -274,6 +285,11 @@ class Task4_Stacking_Config(BaseConfig):
         {'backbone': 'efficientnet', 'attention': 'none'},
         {'backbone': 'efficientnet', 'attention': 'se'},
         {'backbone': 'efficientnet', 'attention': 'mha'},
+        
+        {'backbone': 'resnet18', 'attention': 'none'},
+        {'backbone': 'resnet18', 'attention': 'none'},
+        {'backbone': 'resnet18', 'attention': 'se'},
+        {'backbone': 'resnet18', 'attention': 'mha'},
     ]
     
     # Stacking settings
