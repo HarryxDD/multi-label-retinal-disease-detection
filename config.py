@@ -216,60 +216,29 @@ class Task3_2_Config(BaseConfig):
     PATIENCE = 7
 
 
-class Task4_ViT_Config(BaseConfig):
-    """Task 4: Vision Transformer for enhanced ensemble"""
-    TASK_NAME = 'task4-vit'
-    
-    # Model
-    BACKBONE = 'vit'
-    MODEL_NAME = 'vit_base_patch16_224'  # ViT-Base/16 pretrained on ImageNet
-    IMG_SIZE = 224  # ViT expects 224x224 input
-    
-    # Training
-    TRAIN = True
-    FREEZE_BACKBONE = False
-    LOAD_PRETRAINED = True
-    
-    # Loss (use focal loss which works well)
-    LOSS_TYPE = 'focal'
-    
-    # Training parameters
-    NUM_EPOCHS = 15
-    LEARNING_RATE = 3e-4
-    WEIGHT_DECAY = 1e-4
-    OPTIMIZER = 'adamw'
-    SCHEDULER = 'cosine'
-    PATIENCE = 7
-
-
 class Task4_Ensemble_Config(BaseConfig):
     """Task 4: Ensemble"""
     TASK_NAME = 'task4-ensemble'
     
-    # Image size - use 224 to match ViT requirements
-    IMG_SIZE = 224
+    # Image size - use 256 for EfficientNet
+    IMG_SIZE = 256
     
     # Models to ensemble
-    # We only use ResNet18-based models from tasks 2-1, 2-2, 3-1 and 3-2.
-    # All of these start from the same full fine-tuning model of Task 1-3 ResNet18,
-    # which makes them well-suited for a weighted-average ensemble.
+    # Focus on best performing EfficientNet models with different techniques
     MODEL_PATHS = [
         './checkpoints/vua_task2-1_efficientnet.pt',  # Focal loss (Task 2.1)
         './checkpoints/vua_task2-2_efficientnet.pt',  # Class-balanced loss (Task 2.2)
         './checkpoints/vua_task3-1_efficientnet.pt',  # SE attention (Task 3.1)
         './checkpoints/vua_task3-2_efficientnet.pt',  # MHA attention (Task 3.2)
-        './checkpoints/vua_task4-vit_vit.pt',              # Vision Transformer (Task 4)
     ]
     
     MODEL_CONFIGS = [
-        # Task 2.x models: plain ResNet18 backbone
+        # Task 2.x models: plain EfficientNet backbone with different losses
         {'backbone': 'efficientnet', 'attention': 'none'},
         {'backbone': 'efficientnet', 'attention': 'none'},
-        # Task 3.x models: ResNet18 with different attention mechanisms
+        # Task 3.x models: EfficientNet with different attention mechanisms
         {'backbone': 'efficientnet', 'attention': 'se'},
         {'backbone': 'efficientnet', 'attention': 'mha'},
-        # Task 4: Vision Transformer
-        {'backbone': 'vit', 'attention': 'none', 'model_name': 'vit_base_patch16_224'},
     ]
     
     # Ensemble method: weighted average over model probabilities
@@ -277,6 +246,39 @@ class Task4_Ensemble_Config(BaseConfig):
 
     # Learn ensemble weights on the validation set to maximize F1
     USE_OPTIMAL_WEIGHTS = True  # Find optimal weights on validation set
+    
+    # Test-Time Augmentation
+    USE_TTA = True
+    
+    # Threshold optimization
+    OPTIMIZE_THRESHOLD = True
+
+
+class Task4_Stacking_Config(BaseConfig):
+    """Task 4: Stacking Ensemble"""
+    TASK_NAME = 'task4-stacking'
+    
+    # Image size
+    IMG_SIZE = 256
+    
+    # Models to stack (same as ensemble)
+    MODEL_PATHS = [
+        './checkpoints/vua_task2-1_efficientnet.pt',  # Focal loss (Task 2.1)
+        './checkpoints/vua_task2-2_efficientnet.pt',  # Class-balanced loss (Task 2.2)
+        './checkpoints/vua_task3-1_efficientnet.pt',  # SE attention (Task 3.1)
+        './checkpoints/vua_task3-2_efficientnet.pt',  # MHA attention (Task 3.2)
+    ]
+    
+    MODEL_CONFIGS = [
+        {'backbone': 'efficientnet', 'attention': 'none'},
+        {'backbone': 'efficientnet', 'attention': 'none'},
+        {'backbone': 'efficientnet', 'attention': 'se'},
+        {'backbone': 'efficientnet', 'attention': 'mha'},
+    ]
+    
+    # Stacking settings
+    USE_SKLEARN_STACKING = True  # Use LogisticRegression (fast) or NN meta-learner (slower)
+    STACKING_META_EPOCHS = 20  # Only used if USE_SKLEARN_STACKING=False
     
     # Test-Time Augmentation
     USE_TTA = True
@@ -303,8 +305,8 @@ def get_config(task='task1-1'):
         'task2-2': Task2_2_Config,
         'task3-1': Task3_1_Config,
         'task3-2': Task3_2_Config,
-        'task4-vit': Task4_ViT_Config,
         'task4': Task4_Ensemble_Config,
+        'task4-stacking': Task4_Stacking_Config,
     }
     
     if task not in configs:

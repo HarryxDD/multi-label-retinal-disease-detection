@@ -16,6 +16,8 @@ from evaluate import (evaluate_model, compute_metrics,
                      find_optimal_threshold, save_predictions_for_kaggle,
                      evaluate_with_tta)
 from ensemble import find_optimal_weights, EnsembleModel
+from stacking import (train_stacking_sklearn, train_stacking_nn, 
+                     stacking_predict, optimize_stacking_thresholds)
 
 
 def set_seed(seed=42):
@@ -78,20 +80,17 @@ def run_single_model(config):
     
     # Build model
     attention = getattr(config, 'ATTENTION', 'none')
-    # For ViT, use pretrained=True to load ImageNet weights from timm
-    pretrained = True if config.BACKBONE == 'vit' else False
     model = build_model(
         backbone=config.BACKBONE,
         num_classes=config.NUM_CLASSES,
-        pretrained=pretrained,
+        pretrained=False,  # We'll load our pretrained weights
         attention=attention,
         se_reduction=getattr(config, 'SE_REDUCTION', 16),
-        num_heads=getattr(config, 'NUM_HEADS', 8),
-        model_name=getattr(config, 'MODEL_NAME', 'vit_base_patch16_224')
+        num_heads=getattr(config, 'NUM_HEADS', 8)
     )
     
-    # Load pretrained weights (skip for ViT as it loads from timm)
-    if config.LOAD_PRETRAINED and config.BACKBONE != 'vit':
+    # Load pretrained weights
+    if config.LOAD_PRETRAINED:
         backbone_key = config.BACKBONE
         pretrained_map = getattr(config, 'PRETRAINED_BACKBONES', {})
         if backbone_key not in pretrained_map:
@@ -371,6 +370,140 @@ def run_ensemble(config):
         print(f"Offsite Test Average F1-Score: {metrics['average_f1']:.4f}")
 
 
+def run_stacking(config):
+    """
+    Run stacking ensemble evaluation
+    
+    Args:
+        config: Stacking configuration
+    """
+    print("STACKING ENSEMBLE")
+    
+    # Set seed
+    set_seed(config.SEED)
+    
+    # Device
+    device = torch.device(config.DEVICE if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}\n")
+    
+    # Load all base models
+    print("Loading base models...")
+    models = []
+    for i, (model_path, model_config) in enumerate(zip(config.MODEL_PATHS, config.MODEL_CONFIGS)):
+        print(f"  Loading model {i+1}: {model_path}")
+        
+        model = build_model(**model_config, num_classes=config.NUM_CLASSES, pretrained=False)
+        model.load_state_dict(torch.load(model_path, map_location=device))
+        model = model.to(device)
+        model.eval()
+        
+        models.append(model)
+    
+    print(f"Loaded {len(models)} base models\n")
+    
+    # Prepare data
+    train_transform = get_transforms(config.IMG_SIZE, mode='train')
+    val_transform = get_transforms(config.IMG_SIZE, mode='val')
+    test_transform = get_transforms(config.IMG_SIZE, mode='test')
+    
+    train_dataset = RetinaMultiLabelDataset(
+        config.TRAIN_CSV, config.TRAIN_IMAGE_DIR, train_transform, mode='train'
+    )
+    val_dataset = RetinaMultiLabelDataset(
+        config.VAL_CSV, config.VAL_IMAGE_DIR, val_transform, mode='val'
+    )
+    offsite_test_dataset = RetinaMultiLabelDataset(
+        config.OFFSITE_TEST_CSV, config.OFFSITE_TEST_DIR, test_transform, mode='test'
+    )
+    
+    train_loader = DataLoader(
+        train_dataset, batch_size=config.BATCH_SIZE,
+        shuffle=False, num_workers=config.NUM_WORKERS  # No shuffle for stacking
+    )
+    val_loader = DataLoader(
+        val_dataset, batch_size=config.BATCH_SIZE,
+        shuffle=False, num_workers=config.NUM_WORKERS
+    )
+    offsite_test_loader = DataLoader(
+        offsite_test_dataset, batch_size=config.BATCH_SIZE,
+        shuffle=False, num_workers=config.NUM_WORKERS
+    )
+    
+    # Train meta-learner
+    if config.USE_SKLEARN_STACKING:
+        print("Using Sklearn Logistic Regression meta-learner (recommended)")
+        meta_models = train_stacking_sklearn(models, train_loader, val_loader, device)
+        use_nn = False
+    else:
+        print("Using Neural Network meta-learner")
+        meta_models = train_stacking_nn(models, train_loader, val_loader, device, 
+                                       num_epochs=config.STACKING_META_EPOCHS)
+        use_nn = True
+    
+    # Evaluate on offsite test
+    print("STACKING EVALUATION ON OFFSITE TEST SET")
+    
+    y_pred, y_probs, img_names = stacking_predict(models, meta_models, offsite_test_loader, 
+                                                   device, use_nn=use_nn)
+    
+    # Get true labels for metrics
+    y_true_list = []
+    for _, labels, _ in offsite_test_loader:
+        y_true_list.append(labels.numpy())
+    y_true = np.vstack(y_true_list)
+    
+    # Compute metrics
+    metrics = compute_metrics(y_true, y_pred, config.DISEASE_NAMES)
+    print(f"\nInitial F1 Score: {metrics['average_f1']:.4f}")
+    
+    # Optimize thresholds
+    if config.OPTIMIZE_THRESHOLD:
+        optimal_thresholds = optimize_stacking_thresholds(models, meta_models, val_loader, 
+                                                          device, use_nn=use_nn)
+        
+        # Re-evaluate with optimal thresholds
+        y_pred_opt = np.zeros_like(y_probs)
+        for i, threshold in enumerate(optimal_thresholds):
+            y_pred_opt[:, i] = (y_probs[:, i] > threshold).astype(int)
+        
+        metrics_opt = compute_metrics(y_true, y_pred_opt, config.DISEASE_NAMES)
+        print(f"\nOptimized F1 Score: {metrics_opt['average_f1']:.4f}")
+    else:
+        optimal_thresholds = [0.5, 0.5, 0.5]
+        metrics_opt = metrics
+    
+    # Onsite test predictions
+    print("ONSITE TEST")
+    
+    onsite_test_dataset = RetinaMultiLabelDataset(
+        config.ONSITE_TEST_CSV, config.ONSITE_TEST_DIR,
+        test_transform, mode='test'
+    )
+    onsite_test_loader = DataLoader(
+        onsite_test_dataset, batch_size=config.BATCH_SIZE,
+        shuffle=False, num_workers=config.NUM_WORKERS
+    )
+    
+    y_pred_onsite, y_probs_onsite, img_names_onsite = stacking_predict(
+        models, meta_models, onsite_test_loader, device, use_nn=use_nn
+    )
+    
+    # Apply optimal thresholds
+    if config.OPTIMIZE_THRESHOLD:
+        y_pred_onsite = np.zeros_like(y_probs_onsite)
+        for i, threshold in enumerate(optimal_thresholds):
+            y_pred_onsite[:, i] = (y_probs_onsite[:, i] > threshold).astype(int)
+    
+    # Save submission
+    submission_path = f"./submissions/vua_{config.TASK_NAME}_submission.csv"
+    os.makedirs('./submissions', exist_ok=True)
+    save_predictions_for_kaggle(img_names_onsite, y_pred_onsite, submission_path)
+    
+    print(f"\nStacking ensemble completed!")
+    print(f"Submission saved: {submission_path}")
+    print(f"Offsite Test F1-Score: {metrics_opt['average_f1']:.4f}")
+
+
 def main():
     """Main function"""
     parser = argparse.ArgumentParser(description='Retinal Disease Classification')
@@ -391,6 +524,8 @@ def main():
     # Run task
     if args.task == 'task4':
         run_ensemble(config)
+    elif args.task == 'task4-stacking':
+        run_stacking(config)
     else:
         run_single_model(config)
 
