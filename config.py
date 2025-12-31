@@ -48,7 +48,7 @@ class Task1_1_Config(BaseConfig):
     # No training parameters needed
     TRAIN = False
     LOAD_PRETRAINED = True
-    USE_TTA = True  # Test-Time Augmentation
+    USE_TTA = False # Test-Time Augmentation
 
 
 class Task1_2_Config(BaseConfig):
